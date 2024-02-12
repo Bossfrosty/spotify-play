@@ -1,3 +1,6 @@
+# Config (containing client ID and secret)
+config.json
+
 # Logs
 logs
 *.log
