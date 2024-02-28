@@ -3,13 +3,12 @@
     <head>
         <title>Spotify Play</title>
         <link rel="stylesheet" href="./stylesheets/default.css">
-        <script src="nav.js"></script>
     </head>
     <body>
         <div class="rows flex-container ">
             <div class="cols flex-container">
                 <div id="left" class="body-col">
-                    <a href="/login">Login</a>
+                    <a href="/auth/login" id="login">Login</a>
                     <h2 id="left-title">Playlists</h2>
                     <ul id="left-list">
                         <li>Playlist 1</li>
@@ -29,9 +28,10 @@
             </div>
             <div id="media-controls" class="flex-container">
                 <button>Previous</button>
-                <button>Play/Pause</button>
+                <button id="togglePlayback">Play/Pause</button>
                 <button>Next</button>
             </div>
         </div>
+        <script src="./js/nav.js"></script>
     </body>
 </html>

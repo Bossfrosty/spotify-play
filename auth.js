@@ -10,14 +10,23 @@ const request = require('request') // TODO: request is deprecated, use fetch ins
 
 const client_id = config.client_id;
 const client_secret = config.client_secret;
-const redirect_uri = 'http://localhost:8888/callback';
+const redirect_uri = 'http://localhost:8888/auth/callback';
 
 const app = express();
 const router = express.Router();
 
+router.get('/status', function(req, res) {
+    if (req.session.access_token) {
+        res.json({ authenticated: true })
+    }
+    else {
+        res.json ({ authenticated: false })
+    }
+})
+
 router.get('/login', function (req, res) {
 
-    var scope = 'user-read-private user-read-email';
+    var scope = 'user-read-private user-read-email user-read-playback-state';
 
     res.redirect('https://accounts.spotify.com/authorize?' +
         querystring.stringify({
@@ -76,7 +85,7 @@ router.get('/callback', function (req, res) {
             return res.status(500).send(errstr);
         }
 
-        return res.status(response.statusCode).send(response.statusMessage);
+        return res.redirect('/');
 
     });
 

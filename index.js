@@ -3,6 +3,7 @@ const session = require('express-session');
 const passport = require('passport-oauth2');
 
 const authRouter = require('./auth');   // Authentication route handler
+const apiRouter = require('./apiController')     // Route handler for authorized API requests
 
 const app = express();
 const router = express.Router();
@@ -14,8 +15,8 @@ app.use(session({
     saveUninitialized: false
 }))
 app.use(express.static('public'));
-app.use('/', authRouter);
-
+app.use('/auth', authRouter);
+app.use('/api', apiRouter);
 
 // Set route for root
 app.get("/", (req, res) => {
