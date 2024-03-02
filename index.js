@@ -2,12 +2,13 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport-oauth2');
 
+const config = require('./config.json');
 const authRouter = require('./auth');   // Authentication route handler
 const apiRouter = require('./apiController')     // Route handler for authorized API requests
 
 const app = express();
 const router = express.Router();
-const port = 8888;
+const port = config.port ?? 8888;
 
 app.use(session({
     secret: 'secret',
@@ -25,5 +26,5 @@ app.get("/", (req, res) => {
 
 // Start server
 app.listen(port, () => {
-    console.log(`Example app listening on port ${port}!`);
+    console.log(`Spotify Play listening on port ${port}.`);
 });
