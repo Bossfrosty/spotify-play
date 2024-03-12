@@ -15,18 +15,18 @@ const redirect_uri = 'http://localhost:8888/auth/callback';
 const app = express();
 const router = express.Router();
 
-router.get('/status', function(req, res) {
+router.get('/status', function (req, res) {
     if (req.session.access_token) {
         res.json({ authenticated: true })
     }
     else {
-        res.json ({ authenticated: false })
+        res.json({ authenticated: false })
     }
 })
 
 router.get('/login', function (req, res) {
 
-    const scopeList = ['user-read-private', 'user-read-playback-state', 'user-modify-playback-state']
+    const scopeList = ['user-read-private', 'user-read-email', 'user-read-playback-state', 'user-modify-playback-state', 'playlist-read-private', 'playlist-read-collaborative']
     const scope = scopeList.join(' ');
 
     res.redirect('https://accounts.spotify.com/authorize?' +
@@ -59,9 +59,9 @@ router.get('/callback', function (req, res) {
     };
 
     request.post(authOptions, function (err, response, body) {
-        
+
         console.log("Request Access Token [" + response.statusCode + "] " + response.statusMessage);
-        
+
         if (err) {
             const errstr = 'Error requesting access token.'
             console.error(errstr, err);
@@ -70,7 +70,7 @@ router.get('/callback', function (req, res) {
 
         const access_token = response.body.access_token || null;
         const refresh_token = response.body.refresh_token || null;
-        
+
         if (access_token) {
             req.session.access_token = access_token;
             if (refresh_token) {
@@ -86,7 +86,7 @@ router.get('/callback', function (req, res) {
             return res.status(500).send(errstr);
         }
 
-        return res.redirect('/');
+        return res.redirect('/home.html');
 
     });
 

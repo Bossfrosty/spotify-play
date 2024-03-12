@@ -5,6 +5,14 @@ const request = require('request');
 const app = express();
 const router = express.Router();
 
+// ROUTES
+
+router.get('/get-profile', async (req, res) => {
+    getProfile(req, async (err, profileInfo) => {
+        return res.json(profileInfo);
+    })
+})
+
 router.get('/toggle-playback', async (req, res) => {
 
     getPlaybackInfo(req, async (err, playbackInfo) => {
@@ -32,6 +40,49 @@ router.get('/skip-next', async (req, res) => {
     skipNext(req);
     return res.status(200);
 })
+
+router.get('/get-playlists', async (req, res) => {
+    getPlaylists(req, async (err, playlistInfo) => {
+        return res.json(playlistInfo);
+    })
+})
+
+// FUNCTIONS
+
+// Returns error and/or profile info as a JSON object in callback.
+async function getProfile(req, callback) {
+
+    const url = 'https://api.spotify.com/v1/me';
+    const token = req.session.access_token;
+
+    const options = {
+        headers: {
+            'Authorization': 'Bearer ' + token
+        }
+    }
+
+    request.get(url, options, function (err, response, body) {
+
+        console.log("Request User's Profile [" + response.statusCode + "] " + response.statusMessage);
+
+        if (err) {
+            const errstr = 'Error getting profile info.'
+            console.error(errstr, err);
+            return callback(err);
+        }
+
+        if (response.statusCode == 200) {
+            const profileInfo = JSON.parse(body);
+            return callback(null, profileInfo);
+        }
+
+        const errstr = 'Unknown error getting profile info.'
+        console.error(errstr, err);
+        return callback(new Error('Unknown error occurred getting profile info.'));
+
+    })
+
+}
 
 async function getPlaybackInfo(req, callback) {
 
@@ -69,7 +120,7 @@ async function getPlaybackInfo(req, callback) {
         }
 
         // TODO: Specific handling for other response codes
-        const errstr = 'Error getting playback info.'
+        const errstr = 'Unknown getting playback info.'
         console.error(errstr, err);
         return callback(new Error('Unknown error occurred getting playback info.'));
     });
@@ -181,6 +232,36 @@ async function skipNext(req) {
             console.log('Skipped to Next');
         }
     });  
+}
+
+async function getPlaylists(req, callback) {
+
+    // Everything is in getProfile callback function's body to deal with asynchronicity.
+    // Promises may have been better here, but I find this method much more readable.
+    getProfile(req, async (err, profileInfo) => {
+
+        req.session.user_id = profileInfo.id;
+
+        const userId = req.session.user_id;
+        const url = 'https://api.spotify.com/v1/users/' + userId + '/playlists';
+        const token = req.session.access_token;
+    
+        const options = {
+            headers: {
+                'content-type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            }
+        }
+    
+        request.get(url, options, function (err, response, body) {
+    
+            console.log("Request User's Playlists [" + response.statusCode + "] " + response.statusMessage);
+            return callback(null, JSON.parse(body));
+    
+        })
+    
+    })
+
 }
 
 module.exports = router;
