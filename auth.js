@@ -60,14 +60,15 @@ router.get('/callback', function (req, res) {
 
     request.post(authOptions, function (err, response, body) {
 
-        console.log("Request Access Token [" + response.statusCode + "] " + response.statusMessage);
-
+        
         if (err) {
             const errstr = 'Error requesting access token.'
             console.error(errstr, err);
             return res.status(500).send(errstr);
         }
-
+        
+        console.log("Request Access Token [" + response.statusCode + "] " + response.statusMessage);
+        
         const access_token = response.body.access_token || null;
         const refresh_token = response.body.refresh_token || null;
 

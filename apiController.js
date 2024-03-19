@@ -42,8 +42,14 @@ router.get('/skip-next', async (req, res) => {
 })
 
 router.get('/get-playlists', async (req, res) => {
-    getPlaylists(req, async (err, playlistInfo) => {
-        return res.json(playlistInfo);
+    getPlaylists(req, async (err, playlistsData) => {
+        return res.json(playlistsData);
+    })
+})
+
+router.get('/get-playlist', async (req, res) => {
+    getPlaylistTracks(req, async (err, playlistData) => {
+        return res.json(playlistData);
     })
 })
 
@@ -62,14 +68,14 @@ async function getProfile(req, callback) {
     }
 
     request.get(url, options, function (err, response, body) {
-
-        console.log("Request User's Profile [" + response.statusCode + "] " + response.statusMessage);
-
+        
         if (err) {
             const errstr = 'Error getting profile info.'
             console.error(errstr, err);
             return callback(err);
         }
+
+        console.log("Request User's Profile [" + response.statusCode + "] " + response.statusMessage);
 
         if (response.statusCode == 200) {
             const profileInfo = JSON.parse(body);
@@ -97,14 +103,14 @@ async function getPlaybackInfo(req, callback) {
     }
 
     request.get(url, options, function (err, response, body) {
-
-        console.log("Request Playback Info [" + response.statusCode + "] " + response.statusMessage);
-
+        
         if (err) {
             const errstr = 'Error getting playback info.'
             console.error(errstr, err);
             return callback(err);
         }
+
+        console.log("Request Playback Info [" + response.statusCode + "] " + response.statusMessage);
 
         if (response.statusCode == 204) {
             // No body = playback not available or active
@@ -140,9 +146,7 @@ async function startPlayback(req) {
 
     request.put(url, options, function (err, response, body) {
 
-        console.log("Start Playback [" + response.statusCode + "] " + response.statusMessage);
-
-        if (err) {
+        if (err || !response) {
             const errstr = 'Could not start playback.'
             console.error(errstr, err);
         }
@@ -153,6 +157,8 @@ async function startPlayback(req) {
         else {
             console.log("Playback started");
         }
+
+        console.log("Start Playback [" + response.statusCode + "] " + response.statusMessage);
     });
 }
 
@@ -170,8 +176,6 @@ async function pausePlayback(req) {
 
     request.put(url, options, function (err, response, body) {
 
-        console.log("Pause Playback [" + response.statusCode + "] " + response.statusMessage);
-
         if (err) {
             const errstr = 'Could not pause playback.'
             console.error(errstr, err);
@@ -179,6 +183,8 @@ async function pausePlayback(req) {
         else {
             console.log("Playback paused");
         }
+
+        console.log("Pause Playback [" + response.statusCode + "] " + response.statusMessage);
     });
 }
 
@@ -196,8 +202,6 @@ async function skipPrev(req) {
 
     request.post(url, options, function (err, response, body) {
 
-        console.log("Skip to prev [" + response.statusCode + "] " + response.statusMessage);
-
         if (err) {
             const errstr = 'Could not skip to previous.'
             console.error(errstr, err);
@@ -205,6 +209,8 @@ async function skipPrev(req) {
         else {
             console.log('Skipped to previous');
         }
+
+        console.log("Skip to prev [" + response.statusCode + "] " + response.statusMessage);
     });
 }
 
@@ -221,9 +227,7 @@ async function skipNext(req) {
     }
 
     request.post(url, options, function (err, response, body) {
-
-        console.log("Skip to next [" + response.statusCode + "] " + response.statusMessage);
-
+        
         if (err) {
             const errstr = 'Could not skip to next.'
             console.error(errstr, err);
@@ -232,6 +236,8 @@ async function skipNext(req) {
             console.log('Skipped to Next');
         }
     });  
+
+    console.log("Skip to next [" + response.statusCode + "] " + response.statusMessage);
 }
 
 async function getPlaylists(req, callback) {
@@ -260,6 +266,28 @@ async function getPlaylists(req, callback) {
     
         })
     
+    })
+
+}
+
+async function getPlaylistTracks(req, callback) {
+
+    const playlistId = req.query.playlist_id;
+    const url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks';
+    const token = req.session.access_token;
+
+    const options = {
+        headers: {
+            'content-type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        }
+    }
+
+    request.get(url, options, function (err, response, body) {
+
+        console.log("Request Playlist Tracks [" + response.statusCode + "] " + response.statusMessage);
+        return callback(null, JSON.parse(body));
+
     })
 
 }
