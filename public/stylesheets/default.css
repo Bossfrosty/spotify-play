@@ -69,3 +69,8 @@ body {
     align-items: center;
     
 }
+
+.list-options {
+    margin-left: auto;
+    height: auto;
+}

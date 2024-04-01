@@ -31,9 +31,16 @@ router.get('/toggle-playback', async (req, res) => {
     return res.status(200);
 })
 
+router.get('/start-playback', async (req, res) => {
+    startPlayback(req);
+    return res.status(200);
+
+})
+
 router.get('/skip-prev', async (req, res) => {
     skipPrev(req);
     return res.status(200);
+    // TODO: Error handling
 })
 
 router.get('/skip-next', async (req, res) => {
@@ -136,29 +143,55 @@ async function startPlayback(req) {
     
     const url = 'https://api.spotify.com/v1/me/player/play';
     const token = req.session.access_token;
+    let contextUri = ''
+    let offsetUri = ''
+
+    // Will pick from the first possible ID to use as context
+    if (req.query.album_id) {
+        contextUri = 'spotify:album:' + req.query.album_id;
+    }
+    else if (req.query.artist_id) {
+        contextUri = 'spotify:artist:' + req.query.artist_id;
+    }
+    else if (req.query.playlist_id) {
+        contextUri = 'spotify:playlist:' + req.query.playlist_id;
+    }
+
+    if (req.query.track_id) {
+        const trackId = req.query.track_id;
+        console.log('TRACK ID: ' + trackId);
+        offsetUri = 'spotify:track:' + trackId;
+    }
 
     const options = {
         headers: {
             'content-type': 'application/json',
             'Authorization': 'Bearer ' + token
-        }
+        },
+        body: JSON.stringify({
+            'context_uri': contextUri,
+            'offset': {'uri': offsetUri}
+        })
     }
 
     request.put(url, options, function (err, response, body) {
+
+        console.log(options);
 
         if (err || !response) {
             const errstr = 'Could not start playback.'
             console.error(errstr, err);
         }
-        else if (response.statusCode == 404) {
-            // TODO: Get default device ID at start of every session
-            console.log('Got 404 trying to start playback. This may occur if you do not have an active device.')
-        }
         else {
-            console.log("Playback started");
+            if (response.statusCode == 404) {
+                // TODO: Get default device ID at start of every session
+                console.log('Got 404 trying to start playback. This may occur if you do not have an active device.')
+            }
+            else {
+                console.log("Playback started");
+            }
+            console.log("Start Playback [" + response.statusCode + "] " + response.statusMessage);
         }
-
-        console.log("Start Playback [" + response.statusCode + "] " + response.statusMessage);
     });
 }
 
