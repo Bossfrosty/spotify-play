@@ -46,7 +46,6 @@ async function loadPlaylistList() {
         }
     }
 }
-loadPlaylistList();
 
 // Load playlist into view given it's Spotify ID
 async function loadPlaylist(playlistId) {
@@ -139,3 +138,18 @@ async function createPlaylistTrackElement(id, titleStr, artists) {
     return elem
 
 }
+
+// Redirects user if they are not yet authenticated
+async function forceAuth() {
+    fetch('/auth/status')
+        .then(response => response.json())
+        .then(data => {
+            if (!data.authenticated) {
+                window.location.href = '/';
+            }
+            else {
+                loadPlaylistList();
+            }
+        });
+};
+forceAuth();

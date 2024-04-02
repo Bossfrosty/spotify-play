@@ -159,7 +159,6 @@ async function startPlayback(req) {
 
     if (req.query.track_id) {
         const trackId = req.query.track_id;
-        console.log('TRACK ID: ' + trackId);
         offsetUri = 'spotify:track:' + trackId;
     }
 
@@ -176,13 +175,12 @@ async function startPlayback(req) {
 
     request.put(url, options, function (err, response, body) {
 
-        console.log(options);
-
         if (err || !response) {
             const errstr = 'Could not start playback.'
             console.error(errstr, err);
         }
         else {
+            console.log("Start Playback [" + response.statusCode + "] " + response.statusMessage);
             if (response.statusCode == 404) {
                 // TODO: Get default device ID at start of every session
                 console.log('Got 404 trying to start playback. This may occur if you do not have an active device.')
@@ -190,7 +188,6 @@ async function startPlayback(req) {
             else {
                 console.log("Playback started");
             }
-            console.log("Start Playback [" + response.statusCode + "] " + response.statusMessage);
         }
     });
 }
