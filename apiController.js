@@ -1,5 +1,4 @@
 const express = require('express');
-const session = require('express-session');
 const request = require('request');
 
 const app = express();
@@ -15,7 +14,7 @@ router.get('/get-profile', async (req, res) => {
 
 router.get('/toggle-playback', async (req, res) => {
 
-    getPlaybackInfo(req, async (err, playbackInfo) => {
+    await getPlaybackInfo(req, async (err, playbackInfo) => {
         
         if (err) {
             return res.status(500).send();
@@ -316,6 +315,8 @@ async function getPlaylistTracks(req, callback) {
     request.get(url, options, function (err, response, body) {
 
         console.log("Request Playlist Tracks [" + response.statusCode + "] " + response.statusMessage);
+        console.log(JSON.parse(body));
+        console.log(url)
         return callback(null, JSON.parse(body));
 
     })
