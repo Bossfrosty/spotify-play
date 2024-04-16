@@ -315,8 +315,6 @@ async function getPlaylistTracks(req, callback) {
     request.get(url, options, function (err, response, body) {
 
         console.log("Request Playlist Tracks [" + response.statusCode + "] " + response.statusMessage);
-        console.log(JSON.parse(body));
-        console.log(url)
         return callback(null, JSON.parse(body));
 
     })

@@ -1,5 +1,7 @@
 // TODO: Error handling
 
+let playQueue = new PlayQueue();
+
 document.getElementById('togglePlayback').addEventListener('click', function() {
     fetch('/api/toggle-playback')
 }); 
@@ -12,12 +14,9 @@ document.getElementById('skipNext').addEventListener('click', function() {
     fetch('/api/skip-next')
 });
 
-// Loads a list of all playlists
-async function loadPlaylistList() {
+async function getPlaylistElements() {
 
-    const leftList = document.getElementById('left-list');
-    leftList.innerHTML = '';    // Clear list contents
-    leftList.removeAttribute('playlist_id');
+    let elems = [];
 
     // Fetch playlist data from backend
     const response = await fetch('/api/get-playlists');
@@ -48,33 +47,27 @@ async function loadPlaylistList() {
             elem.appendChild(buttonDiv);
 
             // Attach event listener
-            elem.addEventListener('click', (event) => {
-                loadPlaylist(event.target.closest('li').getAttribute('playlist_id'))
+            elem.addEventListener('click', async (event) => {
+                let playlistId = event.target.closest('li').getAttribute('playlist_id');
+                let playlistTracks = await getPlaylistTrackElements(playlistId);
+                loadList(playlistTracks, true);
             })    // Need to know associated playlist on click
 
             // Add to list
-            leftList.appendChild(elem);
+            elems.push(elem);
         }
         else {
             // This could occur if there are playlists without names or objects that aren't playlists
             console.warn('A playlist object without name property at index ' + i + ' was ignored.')
         }
     }
+
+    return elems;
 }
 
-// Load playlist into view given it's Spotify ID
-async function loadPlaylist(playlistId) {
+async function getPlaylistTrackElements(playlistId) {
 
-    const leftList = document.getElementById('left-list');
-    leftList.setAttribute('playlist_id', playlistId);
-    leftList.innerHTML = '';    // Clear list contents
-
-    // Back anchor for returning to playlist list
-    const backElem = document.createElement('a');
-    backElem.addEventListener('click', loadPlaylistList);
-    backElem.innerText = '< Back';
-    backElem.classList.add('nav-item');
-    leftList.append(backElem);
+    let elems = [];
 
     // Fetch playlist data from backend
     const url = '/api/get-playlist?playlist_id=' + playlistId;
@@ -92,12 +85,35 @@ async function loadPlaylist(playlistId) {
 
             // Create & add element
             const elem = await createPlaylistTrackElement(thisTrack.id, title, artists)
-            leftList.appendChild(elem);
+            elems.push(elem);
         }
         else {
             // This could occur if there are playlists without names or objects that aren't playlists
             console.warn('A track object without name property at index ' + i + ' was ignored.')
         }
+    }
+
+    return elems;
+}
+
+async function loadList(elementList, backList) {
+
+    const leftList = document.getElementById('left-list');
+    leftList.innerHTML = '';    // Clear list contents
+    leftList.removeAttribute('playlist_id');
+
+    if (backList) {
+        // Back anchor for returning to playlist list
+        const backElem = document.createElement('a');
+        let playlistElems = await getPlaylistElements();
+        backElem.addEventListener('click', () => {loadList(playlistElems, false)});
+        backElem.innerText = '< Back';
+        backElem.classList.add('nav-item');
+        leftList.append(backElem);
+    }
+
+    for (const e of elementList) {
+        leftList.append(e);
     }
 }
 
@@ -155,7 +171,7 @@ async function createPlaylistTrackElement(id, titleStr, artists) {
 
     // Attach event listeners
     addElem.addEventListener('click', (event) => {
-        // TODO
+        playQueue.appendTracks([event.target.closest('li')]);
     });
 
     playElem.addEventListener('click', (event) => {
@@ -175,12 +191,13 @@ async function createPlaylistTrackElement(id, titleStr, artists) {
 async function forceAuth() {
     fetch('/auth/status')
         .then(response => response.json())
-        .then(data => {
+        .then(async data => {
             if (!data.authenticated) {
                 window.location.href = '/';
             }
             else {
-                loadPlaylistList();
+                let playlistElems = await getPlaylistElements();
+                loadList(playlistElems);
             }
         });
 };
