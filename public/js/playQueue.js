@@ -8,7 +8,7 @@ class PlayQueue {
         for (const e of trackElements) {
             this.tracks.push(e);
         }
-        console.log(this.tracks);
+        return this.tracks;
     }
     
 }

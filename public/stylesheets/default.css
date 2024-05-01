@@ -29,6 +29,8 @@ body {
     overflow-y: scroll;
 }
 
+
+
 .body-col ul {
     list-style-type: none;
     padding: 0;
@@ -39,12 +41,15 @@ body {
     border-color: #666;
     border-radius: 5px;
     margin: 5px;
-    padding: 5px;
     max-width: 25em;
 }
 
 .body-col li:hover {
     background-color: #ddd;
+}
+
+.body-col li > * {
+    padding: 5px;
 }
 
 #left {
@@ -67,10 +72,13 @@ body {
     width: 100%;
     justify-content: center;
     align-items: center;
-    
+}
+
+.list-title {
+    margin-right: auto;
+    flex: 1;
 }
 
 .list-options {
-    margin-left: auto;
     height: auto;
 }

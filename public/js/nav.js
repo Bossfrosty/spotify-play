@@ -27,34 +27,8 @@ async function getPlaylistElements() {
     for (const i in playlists) {
         currentItem = playlists[i];
         if (currentItem.name) {
-
-            // Create base list element
-            const elem = document.createElement('li');
-            elem.classList.add('cols', 'flex-container');
-            elem.setAttribute('playlist_id', currentItem.id);
-
-            // Create and append title
-            const titleDiv = document.createElement('div');
-            titleDiv.textContent = currentItem.name;
-            elem.appendChild(titleDiv);
-
-            // Create and append button
-            const buttonDiv = document.createElement('div');
-            buttonDiv.classList.add('list-options')
-            const addElem = document.createElement('button');
-            addElem.textContent = 'Add'
-            buttonDiv.appendChild(addElem);
-            elem.appendChild(buttonDiv);
-
-            // Attach event listener
-            elem.addEventListener('click', async (event) => {
-                let playlistId = event.target.closest('li').getAttribute('playlist_id');
-                let playlistTracks = await getPlaylistTrackElements(playlistId);
-                loadList(playlistTracks, true);
-            })    // Need to know associated playlist on click
-
-            // Add to list
-            elems.push(elem);
+            let playlistElement = await createPlaylistElement(currentItem.id, currentItem.name);
+            elems.push(playlistElement);
         }
         else {
             // This could occur if there are playlists without names or objects that aren't playlists
@@ -75,16 +49,12 @@ async function getPlaylistTrackElements(playlistId) {
     const playlistJson = await response.json();
     const playlistItems = playlistJson.items // array of PlaylistTrackObject
 
+    // Create & add element
     for (const i in playlistItems) {
         const thisItem = playlistItems[i];
-
         if (thisItem.track) {
             const thisTrack = thisItem.track;
-            const title = thisTrack.name ?? 'Unknown Track';
-            let artists = thisTrack.artists ?? 'Unknown Artist';
-
-            // Create & add element
-            const elem = await createPlaylistTrackElement(thisTrack.id, title, artists)
+            const elem = await createTrackElement(thisTrack.id, thisTrack.name, thisTrack.artists)
             elems.push(elem);
         }
         else {
@@ -96,24 +66,31 @@ async function getPlaylistTrackElements(playlistId) {
     return elems;
 }
 
-async function loadList(elementList, backList) {
+async function loadList(elementList, targetId, backList, copy) {
 
-    const leftList = document.getElementById('left-list');
-    leftList.innerHTML = '';    // Clear list contents
-    leftList.removeAttribute('playlist_id');
+    const targetList = document.getElementById(targetId);
+    targetList.innerHTML = '';    // Clear list contents
+    targetList.removeAttribute('playlist_id');
 
     if (backList) {
         // Back anchor for returning to playlist list
         const backElem = document.createElement('a');
         let playlistElems = await getPlaylistElements();
-        backElem.addEventListener('click', () => {loadList(playlistElems, false)});
+        backElem.addEventListener('click', () => {loadList(playlistElems, 'left-list')});
         backElem.innerText = '< Back';
         backElem.classList.add('nav-item');
-        leftList.append(backElem);
+        targetList.append(backElem);
     }
 
     for (const e of elementList) {
-        leftList.append(e);
+        if (copy) {
+            // Creats deep copy of element, keeping attributes and data, but not necessarily interactions
+            targetList.append(e.cloneNode(true));
+        }
+        else {
+            // Move the element by reference
+            targetList.append(e);
+        }
     }
 }
 
@@ -133,7 +110,7 @@ async function playTrack(contextType, contextId, trackId) {
     fetch(fullUrl);
 }
 
-async function createPlaylistTrackElement(id, titleStr, artists) {
+async function createTrackElement(id, titleStr = 'No Title', artists) {
 
     // Build artists string off array of ArtistObject
     let ArtistsStr = 'Unknown Artist';
@@ -151,6 +128,7 @@ async function createPlaylistTrackElement(id, titleStr, artists) {
 
     // Create and append title
     const titleDiv = document.createElement('div');
+    titleDiv.classList.add('list-title');
     titleDiv.textContent = trackStr;
     elem.appendChild(titleDiv);
 
@@ -171,7 +149,10 @@ async function createPlaylistTrackElement(id, titleStr, artists) {
 
     // Attach event listeners
     addElem.addEventListener('click', (event) => {
-        playQueue.appendTracks([event.target.closest('li')]);
+        playQueue.appendTracks(Array(event.target.closest('li')))
+            .then((trackList) => {
+                loadList(trackList, 'right-list', false, true);
+            });
     });
 
     playElem.addEventListener('click', (event) => {
@@ -181,6 +162,38 @@ async function createPlaylistTrackElement(id, titleStr, artists) {
         const parentUl = parentLi.closest('ul');
         const playlistId = parentUl.getAttribute('playlist_id') // Has attributes for playlist
         playTrack('playlist', playlistId, trackId);
+    });     // Need to know associated playlist on click
+
+    return elem
+
+}
+
+async function createPlaylistElement(id, titleStr) {
+
+    // Create base list element
+    const elem = document.createElement('li');
+    elem.classList.add('cols', 'flex-container');
+    elem.setAttribute('playlist_id', id);
+
+    // Create and append title
+    const titleDiv = document.createElement('div');
+    titleDiv.classList.add('list-title');
+    titleDiv.textContent = titleStr;
+    elem.appendChild(titleDiv);
+
+    // Create and append button
+    const buttonDiv = document.createElement('div');
+    buttonDiv.classList.add('list-options')
+    const addElem = document.createElement('button');
+    addElem.textContent = 'Add'
+    buttonDiv.appendChild(addElem);
+    elem.appendChild(buttonDiv);
+
+    // Attach event listener
+    titleDiv.addEventListener('click', async (event) => {
+        let playlistId = event.target.closest('li').getAttribute('playlist_id');
+        let playlistTracks = await getPlaylistTrackElements(playlistId);
+        loadList(playlistTracks, 'left-list', true);
     });     // Need to know associated playlist on click
 
     return elem
@@ -197,7 +210,7 @@ async function forceAuth() {
             }
             else {
                 let playlistElems = await getPlaylistElements();
-                loadList(playlistElems);
+                loadList(playlistElems, 'left-list', false);
             }
         });
 };
