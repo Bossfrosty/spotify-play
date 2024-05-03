@@ -146,13 +146,10 @@ async function createTrackElement(id, titleStr = 'No Title', artists) {
     buttonDiv.appendChild(playElem);
     elem.appendChild(buttonDiv);
 
-
     // Attach event listeners
     addElem.addEventListener('click', (event) => {
         playQueue.appendTracks(Array(event.target.closest('li')))
-            .then((trackList) => {
-                loadList(trackList, 'right-list', false, true);
-            });
+            .then((trackList) => loadList(trackList, 'right-list', false, true));
     });
 
     playElem.addEventListener('click', (event) => {
@@ -189,12 +186,20 @@ async function createPlaylistElement(id, titleStr) {
     buttonDiv.appendChild(addElem);
     elem.appendChild(buttonDiv);
 
-    // Attach event listener
+    // Attach event listeners
     titleDiv.addEventListener('click', async (event) => {
         let playlistId = event.target.closest('li').getAttribute('playlist_id');
         let playlistTracks = await getPlaylistTrackElements(playlistId);
         loadList(playlistTracks, 'left-list', true);
     });     // Need to know associated playlist on click
+
+    // Wanted to experiment with promise chaining here instead of making listener async
+    addElem.addEventListener('click', (event) => {
+        let playlistId = event.target.closest('li').getAttribute('playlist_id');
+        getPlaylistTrackElements(playlistId)
+            .then((playlistTracks) => playQueue.appendTracks(playlistTracks))
+            .then((trackList) => loadList(trackList, 'right-list', false, true));
+    });
 
     return elem
 
