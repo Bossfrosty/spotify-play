@@ -54,7 +54,7 @@ async function getPlaylistTrackElements(playlistId) {
         const thisItem = playlistItems[i];
         if (thisItem.track) {
             const thisTrack = thisItem.track;
-            const elem = await createTrackElement(thisTrack.id, thisTrack.name, thisTrack.artists)
+            const elem = await createTrackElement(thisTrack.id, thisTrack.name, thisTrack.artists);
             elems.push(elem);
         }
         else {
@@ -71,6 +71,25 @@ async function loadList(elementList, targetId, backList, copy) {
     const targetList = document.getElementById(targetId);
     targetList.innerHTML = '';    // Clear list contents
     targetList.removeAttribute('playlist_id');
+
+    if (targetId == 'left-list') {
+        for (e of elementList) {
+            if (e.hasAttribute('track_id')) {
+                setListOptions(e, 'listTrack')
+            }
+            else if (e.hasAttribute('playlist_id') ) {
+                setListOptions(e, 'playlist');
+            }
+        }
+    }
+    else if (targetId == 'right-list') {
+        for (e of elementList) {
+            setListOptions(e, 'queueTrack');
+        }
+    }
+    else {
+        console.warn('Attempted to set options for an element based on context, but its location was unexpected.');
+    }
 
     if (backList) {
         // Back anchor for returning to playlist list
@@ -132,37 +151,67 @@ async function createTrackElement(id, titleStr = 'No Title', artists) {
     titleDiv.textContent = trackStr;
     elem.appendChild(titleDiv);
 
-    // Create and append buttons
+    // Create and append button div
     const buttonDiv = document.createElement('div');
     buttonDiv.classList.add('list-options');
-
-    const addElem = document.createElement('button');
-    const playElem = document.createElement('button');
-
-    addElem.textContent = 'Add'
-    playElem.textContent = 'Play'
-
-    buttonDiv.appendChild(addElem);
-    buttonDiv.appendChild(playElem);
     elem.appendChild(buttonDiv);
 
-    // Attach event listeners
-    addElem.addEventListener('click', (event) => {
-        playQueue.appendTracks(Array(event.target.closest('li')))
-            .then((trackList) => loadList(trackList, 'right-list', false, true));
-    });
-
-    playElem.addEventListener('click', (event) => {
-        const parentLi = event.target.closest('li');    // Has attributes for track
-        const trackId = parentLi.getAttribute('track_id');
-
-        const parentUl = parentLi.closest('ul');
-        const playlistId = parentUl.getAttribute('playlist_id') // Has attributes for playlist
-        playTrack('playlist', playlistId, trackId);
-    });     // Need to know associated playlist on click
+    setListOptions(elem, 'playlist');
 
     return elem
 
+}
+
+// Valid styles: playlist, listTrack, queueTrack
+async function setListOptions(element, style) {
+
+    let optionsElement = element.getElementsByClassName('list-options')[0];
+    optionsElement.innerHTML = '';
+
+    // Button 'Play'
+    if (style == 'listTrack' || style == 'queueTrack') {
+        const playElem = document.createElement('button');
+        playElem.textContent = 'Play';
+        playElem.addEventListener('click', (event) => {
+            const parentLi = event.target.closest('li');    // Has attributes for track
+            const trackId = parentLi.getAttribute('track_id');
+    
+            const parentUl = parentLi.closest('ul');
+            const playlistId = parentUl.getAttribute('playlist_id') // Has attributes for playlist
+            playTrack('playlist', playlistId, trackId);
+        });     // Need to know associated playlist on click
+        optionsElement.appendChild(playElem);
+    }
+
+    // Button 'Add'
+    if (style == 'playlist' || style == 'listTrack') {
+        const addElem = document.createElement('button');
+        addElem.textContent = 'Add';
+        addElem.addEventListener('click', async (event) => {
+            if (style == 'playlist') {
+                let playlistId = event.target.closest('li').getAttribute('playlist_id');
+                getPlaylistTrackElements(playlistId)
+                    .then((playlistTracks) => playQueue.appendTracks(playlistTracks))
+                    .then((trackList) => loadList(trackList, 'right-list', false, true));
+            }
+            else {
+                playQueue.appendTracks(Array(event.target.closest('li')))
+                    .then((trackList) => loadList(trackList, 'right-list', false, true));
+            }
+            
+        });
+        optionsElement.appendChild(addElem);
+    }
+
+    // Button 'Remove'
+    if (style == 'queueTrack') {
+        const removeElem = document.createElement('button');
+        removeElem.textContent = 'Remove';
+        removeElem.addEventListener('click', (event) => {
+            // TODO
+        });
+        optionsElement.appendChild(removeElem);
+    }
 }
 
 async function createPlaylistElement(id, titleStr) {
@@ -178,28 +227,12 @@ async function createPlaylistElement(id, titleStr) {
     titleDiv.textContent = titleStr;
     elem.appendChild(titleDiv);
 
-    // Create and append button
+    // Create and append button div
     const buttonDiv = document.createElement('div');
-    buttonDiv.classList.add('list-options')
-    const addElem = document.createElement('button');
-    addElem.textContent = 'Add'
-    buttonDiv.appendChild(addElem);
+    buttonDiv.classList.add('list-options');
     elem.appendChild(buttonDiv);
 
-    // Attach event listeners
-    titleDiv.addEventListener('click', async (event) => {
-        let playlistId = event.target.closest('li').getAttribute('playlist_id');
-        let playlistTracks = await getPlaylistTrackElements(playlistId);
-        loadList(playlistTracks, 'left-list', true);
-    });     // Need to know associated playlist on click
-
-    // Wanted to experiment with promise chaining here instead of making listener async
-    addElem.addEventListener('click', (event) => {
-        let playlistId = event.target.closest('li').getAttribute('playlist_id');
-        getPlaylistTrackElements(playlistId)
-            .then((playlistTracks) => playQueue.appendTracks(playlistTracks))
-            .then((trackList) => loadList(trackList, 'right-list', false, true));
-    });
+    setListOptions(elem, 'playlist');
 
     return elem
 
