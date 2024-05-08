@@ -179,7 +179,7 @@ async function setListOptions(element, style) {
             const parentUl = parentLi.closest('ul');
             const playlistId = parentUl.getAttribute('playlist_id') // Has attributes for playlist
             playTrack('playlist', playlistId, trackId);
-        });     // Need to know associated playlist on click
+        });
         optionsElement.appendChild(playElem);
     }
 
@@ -231,6 +231,12 @@ async function createPlaylistElement(id, titleStr) {
     const buttonDiv = document.createElement('div');
     buttonDiv.classList.add('list-options');
     elem.appendChild(buttonDiv);
+
+    titleDiv.addEventListener('click', async (event) => {
+        let playlistId = event.target.closest('li').getAttribute('playlist_id');
+        let playlistTracks = await getPlaylistTrackElements(playlistId);
+        loadList(playlistTracks, 'left-list', true);
+    });     // Need to know associated playlist on click
 
     setListOptions(elem, 'playlist');
 
