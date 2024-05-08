@@ -66,14 +66,26 @@ async function getPlaylistTrackElements(playlistId) {
     return elems;
 }
 
-async function loadList(elementList, targetId, backList, copy) {
+async function loadList(elements, targetId, backList, copy) {
 
     const targetList = document.getElementById(targetId);
     targetList.innerHTML = '';    // Clear list contents
     targetList.removeAttribute('playlist_id');
+    
+    let newElements = [];
+    for (const e of elements) {
+        if (copy) {
+            // Creats deep copy of element, keeping attributes and data, but not necessarily interactions
+            newElements.push(e.cloneNode(true))
+        }
+        else {
+            // Keep the elements by reference, event handlers are maintained
+            newElements = elements;
+        }
+    }
 
     if (targetId == 'left-list') {
-        for (e of elementList) {
+        for (const e of newElements) {
             if (e.hasAttribute('track_id')) {
                 setListOptions(e, 'listTrack')
             }
@@ -83,7 +95,7 @@ async function loadList(elementList, targetId, backList, copy) {
         }
     }
     else if (targetId == 'right-list') {
-        for (e of elementList) {
+        for (const e of newElements) {
             setListOptions(e, 'queueTrack');
         }
     }
@@ -101,16 +113,10 @@ async function loadList(elementList, targetId, backList, copy) {
         targetList.append(backElem);
     }
 
-    for (const e of elementList) {
-        if (copy) {
-            // Creats deep copy of element, keeping attributes and data, but not necessarily interactions
-            targetList.append(e.cloneNode(true));
-        }
-        else {
-            // Move the element by reference
-            targetList.append(e);
-        }
+    for (const e of newElements) {
+        targetList.append(e);
     }
+
 }
 
 async function playTrack(contextType, contextId, trackId) {
@@ -208,7 +214,8 @@ async function setListOptions(element, style) {
         const removeElem = document.createElement('button');
         removeElem.textContent = 'Remove';
         removeElem.addEventListener('click', (event) => {
-            // TODO
+            const parentLi = event.target.closest('li');    // Has attributes for track
+            parentLi.remove();
         });
         optionsElement.appendChild(removeElem);
     }
@@ -236,7 +243,7 @@ async function createPlaylistElement(id, titleStr) {
         let playlistId = event.target.closest('li').getAttribute('playlist_id');
         let playlistTracks = await getPlaylistTrackElements(playlistId);
         loadList(playlistTracks, 'left-list', true);
-    });     // Need to know associated playlist on click
+    });
 
     setListOptions(elem, 'playlist');
 
