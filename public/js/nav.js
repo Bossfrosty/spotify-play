@@ -14,6 +14,11 @@ document.getElementById('skipNext').addEventListener('click', function() {
     fetch('/api/skip-next')
 });
 
+document.getElementById('queue-clear').addEventListener('click', function() {
+    playQueue.clear()
+        .then((trackList) => loadList(trackList, 'right-list', false, true));
+});
+
 async function getPlaylistElements() {
 
     let elems = [];
@@ -66,55 +71,48 @@ async function getPlaylistTrackElements(playlistId) {
     return elems;
 }
 
-async function loadList(elements, targetId, backList, copy) {
+async function loadList(elements, targetId, backList) {
 
     const targetList = document.getElementById(targetId);
     targetList.innerHTML = '';    // Clear list contents
     targetList.removeAttribute('playlist_id');
-    
-    let newElements = [];
-    for (const e of elements) {
-        if (copy) {
-            // Creats deep copy of element, keeping attributes and data, but not necessarily interactions
-            newElements.push(e.cloneNode(true))
-        }
-        else {
-            // Keep the elements by reference, event handlers are maintained
-            newElements = elements;
-        }
-    }
 
-    if (targetId == 'left-list') {
-        for (const e of newElements) {
-            if (e.hasAttribute('track_id')) {
-                setListOptions(e, 'listTrack')
-            }
-            else if (e.hasAttribute('playlist_id') ) {
-                setListOptions(e, 'playlist');
-            }
-        }
-    }
-    else if (targetId == 'right-list') {
-        for (const e of newElements) {
-            setListOptions(e, 'queueTrack');
-        }
+    if (!elements) {
+        // Empty list, do nothing
     }
     else {
-        console.warn('Attempted to set options for an element based on context, but its location was unexpected.');
+        if (targetId == 'left-list') {
+            for (const e of elements) {
+                if (e.hasAttribute('track_id')) {
+                    setListOptions(e, 'listTrack')
+                }
+                else if (e.hasAttribute('playlist_id')) {
+                    setListOptions(e, 'playlist');
+                }
+            }
+        }
+        else if (targetId == 'right-list') {
+            for (const e of elements) {
+                setListOptions(e, 'queueTrack');
+            }
+        }
+        else {
+            console.warn('Attempted to set options for an element based on context, but its location was unexpected.');
+        }
+
+        for (const e of elements) {
+            targetList.append(e);
+        }
     }
 
     if (backList) {
         // Back anchor for returning to playlist list
         const backElem = document.createElement('a');
         let playlistElems = await getPlaylistElements();
-        backElem.addEventListener('click', () => {loadList(playlistElems, 'left-list')});
+        backElem.addEventListener('click', () => { loadList(playlistElems, 'left-list') });
         backElem.innerText = '< Back';
         backElem.classList.add('nav-item');
-        targetList.append(backElem);
-    }
-
-    for (const e of newElements) {
-        targetList.append(e);
+        targetList.prepend(backElem);
     }
 
 }
@@ -135,6 +133,36 @@ async function playTrack(contextType, contextId, trackId) {
     fetch(fullUrl);
 }
 
+async function createPlaylistElement(id, titleStr) {
+
+    // Create base list element
+    const elem = document.createElement('li');
+    elem.classList.add('cols', 'flex-container');
+    elem.setAttribute('playlist_id', id);
+
+    // Create and append title
+    const titleDiv = document.createElement('div');
+    titleDiv.classList.add('elem-title');
+    titleDiv.textContent = titleStr;
+    elem.appendChild(titleDiv);
+
+    // Create and append button div
+    const buttonDiv = document.createElement('div');
+    buttonDiv.classList.add('elem-options');
+    elem.appendChild(buttonDiv);
+
+    titleDiv.addEventListener('click', async (event) => {
+        let playlistId = event.target.closest('li').getAttribute('playlist_id');
+        let playlistTracks = await getPlaylistTrackElements(playlistId);
+        loadList(playlistTracks, 'left-list', true);
+    });
+
+    setListOptions(elem, 'playlist');
+
+    return elem
+
+}
+
 async function createTrackElement(id, titleStr = 'No Title', artists) {
 
     // Build artists string off array of ArtistObject
@@ -153,13 +181,13 @@ async function createTrackElement(id, titleStr = 'No Title', artists) {
 
     // Create and append title
     const titleDiv = document.createElement('div');
-    titleDiv.classList.add('list-title');
+    titleDiv.classList.add('elem-title');
     titleDiv.textContent = trackStr;
     elem.appendChild(titleDiv);
 
     // Create and append button div
     const buttonDiv = document.createElement('div');
-    buttonDiv.classList.add('list-options');
+    buttonDiv.classList.add('elem-options');
     elem.appendChild(buttonDiv);
 
     setListOptions(elem, 'playlist');
@@ -171,7 +199,7 @@ async function createTrackElement(id, titleStr = 'No Title', artists) {
 // Valid styles: playlist, listTrack, queueTrack
 async function setListOptions(element, style) {
 
-    let optionsElement = element.getElementsByClassName('list-options')[0];
+    let optionsElement = element.getElementsByClassName('elem-options')[0];
     optionsElement.innerHTML = '';
 
     // Button 'Play'
@@ -198,11 +226,11 @@ async function setListOptions(element, style) {
                 let playlistId = event.target.closest('li').getAttribute('playlist_id');
                 getPlaylistTrackElements(playlistId)
                     .then((playlistTracks) => playQueue.appendTracks(playlistTracks))
-                    .then((trackList) => loadList(trackList, 'right-list', false, true));
+                    .then((trackList) => loadList(trackList, 'right-list', false));
             }
             else {
                 playQueue.appendTracks(Array(event.target.closest('li')))
-                    .then((trackList) => loadList(trackList, 'right-list', false, true));
+                    .then((trackList) => loadList(trackList, 'right-list', false));
             }
             
         });
@@ -215,40 +243,11 @@ async function setListOptions(element, style) {
         removeElem.textContent = 'Remove';
         removeElem.addEventListener('click', (event) => {
             const parentLi = event.target.closest('li');    // Has attributes for track
-            parentLi.remove();
+            playQueue.removeTrack(parentLi)
+                .then((trackList) => loadList(trackList, 'right-list', false));
         });
         optionsElement.appendChild(removeElem);
     }
-}
-
-async function createPlaylistElement(id, titleStr) {
-
-    // Create base list element
-    const elem = document.createElement('li');
-    elem.classList.add('cols', 'flex-container');
-    elem.setAttribute('playlist_id', id);
-
-    // Create and append title
-    const titleDiv = document.createElement('div');
-    titleDiv.classList.add('list-title');
-    titleDiv.textContent = titleStr;
-    elem.appendChild(titleDiv);
-
-    // Create and append button div
-    const buttonDiv = document.createElement('div');
-    buttonDiv.classList.add('list-options');
-    elem.appendChild(buttonDiv);
-
-    titleDiv.addEventListener('click', async (event) => {
-        let playlistId = event.target.closest('li').getAttribute('playlist_id');
-        let playlistTracks = await getPlaylistTrackElements(playlistId);
-        loadList(playlistTracks, 'left-list', true);
-    });
-
-    setListOptions(elem, 'playlist');
-
-    return elem
-
 }
 
 // Redirects user if they are not yet authenticated
