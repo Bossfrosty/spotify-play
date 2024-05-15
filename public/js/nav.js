@@ -14,6 +14,11 @@ document.getElementById('skipNext').addEventListener('click', function() {
     fetch('/api/skip-next')
 });
 
+document.getElementById('queue-clear').addEventListener('click', function() {
+    playQueue.clear()
+        .then((trackList) => loadList(trackList, 'right-list', false, true));
+});
+
 async function getPlaylistElements() {
 
     let elems = [];
@@ -54,7 +59,7 @@ async function getPlaylistTrackElements(playlistId) {
         const thisItem = playlistItems[i];
         if (thisItem.track) {
             const thisTrack = thisItem.track;
-            const elem = await createTrackElement(thisTrack.id, thisTrack.name, thisTrack.artists)
+            const elem = await createTrackElement(thisTrack.id, thisTrack.name, thisTrack.artists);
             elems.push(elem);
         }
         else {
@@ -66,32 +71,50 @@ async function getPlaylistTrackElements(playlistId) {
     return elems;
 }
 
-async function loadList(elementList, targetId, backList, copy) {
+async function loadList(elements, targetId, backList) {
 
     const targetList = document.getElementById(targetId);
     targetList.innerHTML = '';    // Clear list contents
     targetList.removeAttribute('playlist_id');
 
+    if (!elements) {
+        // Empty list, do nothing
+    }
+    else {
+        if (targetId == 'left-list') {
+            for (const e of elements) {
+                if (e.hasAttribute('track_id')) {
+                    setListOptions(e, 'listTrack')
+                }
+                else if (e.hasAttribute('playlist_id')) {
+                    setListOptions(e, 'playlist');
+                }
+            }
+        }
+        else if (targetId == 'right-list') {
+            for (const e of elements) {
+                setListOptions(e, 'queueTrack');
+            }
+        }
+        else {
+            console.warn('Attempted to set options for an element based on context, but its location was unexpected.');
+        }
+
+        for (const e of elements) {
+            targetList.append(e);
+        }
+    }
+
     if (backList) {
         // Back anchor for returning to playlist list
         const backElem = document.createElement('a');
         let playlistElems = await getPlaylistElements();
-        backElem.addEventListener('click', () => {loadList(playlistElems, 'left-list')});
+        backElem.addEventListener('click', () => { loadList(playlistElems, 'left-list') });
         backElem.innerText = '< Back';
         backElem.classList.add('nav-item');
-        targetList.append(backElem);
+        targetList.prepend(backElem);
     }
 
-    for (const e of elementList) {
-        if (copy) {
-            // Creats deep copy of element, keeping attributes and data, but not necessarily interactions
-            targetList.append(e.cloneNode(true));
-        }
-        else {
-            // Move the element by reference
-            targetList.append(e);
-        }
-    }
 }
 
 async function playTrack(contextType, contextId, trackId) {
@@ -108,6 +131,36 @@ async function playTrack(contextType, contextId, trackId) {
 
     fullUrl = baseUrl + '?' + params.toString();
     fetch(fullUrl);
+}
+
+async function createPlaylistElement(id, titleStr) {
+
+    // Create base list element
+    const elem = document.createElement('li');
+    elem.classList.add('cols', 'flex-container');
+    elem.setAttribute('playlist_id', id);
+
+    // Create and append title
+    const titleDiv = document.createElement('div');
+    titleDiv.classList.add('elem-title');
+    titleDiv.textContent = titleStr;
+    elem.appendChild(titleDiv);
+
+    // Create and append button div
+    const buttonDiv = document.createElement('div');
+    buttonDiv.classList.add('elem-options');
+    elem.appendChild(buttonDiv);
+
+    titleDiv.addEventListener('click', async (event) => {
+        let playlistId = event.target.closest('li').getAttribute('playlist_id');
+        let playlistTracks = await getPlaylistTrackElements(playlistId);
+        loadList(playlistTracks, 'left-list', true);
+    });
+
+    setListOptions(elem, 'playlist');
+
+    return elem
+
 }
 
 async function createTrackElement(id, titleStr = 'No Title', artists) {
@@ -128,81 +181,73 @@ async function createTrackElement(id, titleStr = 'No Title', artists) {
 
     // Create and append title
     const titleDiv = document.createElement('div');
-    titleDiv.classList.add('list-title');
+    titleDiv.classList.add('elem-title');
     titleDiv.textContent = trackStr;
     elem.appendChild(titleDiv);
 
-    // Create and append buttons
+    // Create and append button div
     const buttonDiv = document.createElement('div');
-    buttonDiv.classList.add('list-options');
-
-    const addElem = document.createElement('button');
-    const playElem = document.createElement('button');
-
-    addElem.textContent = 'Add'
-    playElem.textContent = 'Play'
-
-    buttonDiv.appendChild(addElem);
-    buttonDiv.appendChild(playElem);
+    buttonDiv.classList.add('elem-options');
     elem.appendChild(buttonDiv);
 
-    // Attach event listeners
-    addElem.addEventListener('click', (event) => {
-        playQueue.appendTracks(Array(event.target.closest('li')))
-            .then((trackList) => loadList(trackList, 'right-list', false, true));
-    });
-
-    playElem.addEventListener('click', (event) => {
-        const parentLi = event.target.closest('li');    // Has attributes for track
-        const trackId = parentLi.getAttribute('track_id');
-
-        const parentUl = parentLi.closest('ul');
-        const playlistId = parentUl.getAttribute('playlist_id') // Has attributes for playlist
-        playTrack('playlist', playlistId, trackId);
-    });     // Need to know associated playlist on click
+    setListOptions(elem, 'playlist');
 
     return elem
 
 }
 
-async function createPlaylistElement(id, titleStr) {
+// Valid styles: playlist, listTrack, queueTrack
+async function setListOptions(element, style) {
 
-    // Create base list element
-    const elem = document.createElement('li');
-    elem.classList.add('cols', 'flex-container');
-    elem.setAttribute('playlist_id', id);
+    let optionsElement = element.getElementsByClassName('elem-options')[0];
+    optionsElement.innerHTML = '';
 
-    // Create and append title
-    const titleDiv = document.createElement('div');
-    titleDiv.classList.add('list-title');
-    titleDiv.textContent = titleStr;
-    elem.appendChild(titleDiv);
+    // Button 'Play'
+    if (style == 'listTrack' || style == 'queueTrack') {
+        const playElem = document.createElement('button');
+        playElem.textContent = 'Play';
+        playElem.addEventListener('click', (event) => {
+            const parentLi = event.target.closest('li');    // Has attributes for track
+            const trackId = parentLi.getAttribute('track_id');
+    
+            const parentUl = parentLi.closest('ul');
+            const playlistId = parentUl.getAttribute('playlist_id') // Has attributes for playlist
+            playTrack('playlist', playlistId, trackId);
+        });
+        optionsElement.appendChild(playElem);
+    }
 
-    // Create and append button
-    const buttonDiv = document.createElement('div');
-    buttonDiv.classList.add('list-options')
-    const addElem = document.createElement('button');
-    addElem.textContent = 'Add'
-    buttonDiv.appendChild(addElem);
-    elem.appendChild(buttonDiv);
+    // Button 'Add'
+    if (style == 'playlist' || style == 'listTrack') {
+        const addElem = document.createElement('button');
+        addElem.textContent = 'Add';
+        addElem.addEventListener('click', async (event) => {
+            if (style == 'playlist') {
+                let playlistId = event.target.closest('li').getAttribute('playlist_id');
+                getPlaylistTrackElements(playlistId)
+                    .then((playlistTracks) => playQueue.appendTracks(playlistTracks))
+                    .then((trackList) => loadList(trackList, 'right-list', false));
+            }
+            else {
+                playQueue.appendTracks(Array(event.target.closest('li')))
+                    .then((trackList) => loadList(trackList, 'right-list', false));
+            }
+            
+        });
+        optionsElement.appendChild(addElem);
+    }
 
-    // Attach event listeners
-    titleDiv.addEventListener('click', async (event) => {
-        let playlistId = event.target.closest('li').getAttribute('playlist_id');
-        let playlistTracks = await getPlaylistTrackElements(playlistId);
-        loadList(playlistTracks, 'left-list', true);
-    });     // Need to know associated playlist on click
-
-    // Wanted to experiment with promise chaining here instead of making listener async
-    addElem.addEventListener('click', (event) => {
-        let playlistId = event.target.closest('li').getAttribute('playlist_id');
-        getPlaylistTrackElements(playlistId)
-            .then((playlistTracks) => playQueue.appendTracks(playlistTracks))
-            .then((trackList) => loadList(trackList, 'right-list', false, true));
-    });
-
-    return elem
-
+    // Button 'Remove'
+    if (style == 'queueTrack') {
+        const removeElem = document.createElement('button');
+        removeElem.textContent = 'Remove';
+        removeElem.addEventListener('click', (event) => {
+            const parentLi = event.target.closest('li');    // Has attributes for track
+            playQueue.removeTrack(parentLi)
+                .then((trackList) => loadList(trackList, 'right-list', false));
+        });
+        optionsElement.appendChild(removeElem);
+    }
 }
 
 // Redirects user if they are not yet authenticated

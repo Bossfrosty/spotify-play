@@ -74,11 +74,15 @@ body {
     align-items: center;
 }
 
-.list-title {
+.elem-title {
     margin-right: auto;
     flex: 1;
 }
 
-.list-options {
+.elem-options {
     height: auto;
+}
+
+#right-title {
+    margin-right: auto;
 }
