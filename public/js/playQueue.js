@@ -4,6 +4,11 @@ class PlayQueue {
         this.tracks = tracks;
     }
 
+    async setTracks(trackElements) {
+        this.clear();
+        this.appendTracks(trackElements);
+    }
+
     async appendTracks(trackElements) {
         for (const e of trackElements) {
             this.tracks.push(e.cloneNode(true));

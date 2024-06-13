@@ -84,16 +84,16 @@ async function loadList(elements, targetId, backList) {
         if (targetId == 'left-list') {
             for (const e of elements) {
                 if (e.hasAttribute('track_id')) {
-                    setListOptions(e, 'listTrack')
+                    setListStyle(e, 'listTrack')
                 }
                 else if (e.hasAttribute('playlist_id')) {
-                    setListOptions(e, 'playlist');
+                    setListStyle(e, 'playlist');
                 }
             }
         }
         else if (targetId == 'right-list') {
             for (const e of elements) {
-                setListOptions(e, 'queueTrack');
+                setListStyle(e, 'queueTrack');
             }
         }
         else {
@@ -157,7 +157,7 @@ async function createPlaylistElement(id, titleStr) {
         loadList(playlistTracks, 'left-list', true);
     });
 
-    setListOptions(elem, 'playlist');
+    setListStyle(elem, 'playlist');
 
     return elem
 
@@ -179,6 +179,7 @@ async function createTrackElement(id, titleStr = 'No Title', artists) {
     elem.classList.add('cols', 'flex-container');
     elem.setAttribute('track_id', id);
 
+
     // Create and append title
     const titleDiv = document.createElement('div');
     titleDiv.classList.add('elem-title');
@@ -190,18 +191,21 @@ async function createTrackElement(id, titleStr = 'No Title', artists) {
     buttonDiv.classList.add('elem-options');
     elem.appendChild(buttonDiv);
 
-    setListOptions(elem, 'playlist');
+    // Draggable
+    setDragAndDropLi(elem);
+
+    setListStyle(elem, 'playlist');
 
     return elem
 
 }
 
 // Valid styles: playlist, listTrack, queueTrack
-async function setListOptions(element, style) {
+async function setListStyle(element, style) {
 
     let optionsElement = element.getElementsByClassName('elem-options')[0];
     optionsElement.innerHTML = '';
-
+    
     // Button 'Play'
     if (style == 'listTrack' || style == 'queueTrack') {
         const playElem = document.createElement('button');
@@ -248,6 +252,90 @@ async function setListOptions(element, style) {
         });
         optionsElement.appendChild(removeElem);
     }
+
+    // Drag & Drop
+    if (style == 'queueTrack') {
+        setDragAndDropLi(element);
+    }
+}
+
+// DRAG AND DROP //
+
+async function setDragAndDropLi(e) {
+    e.setAttribute('draggable', 'true');
+
+    e.addEventListener('dragstart', (event) => {
+        if (!event.target.id) {
+            // Assign a temp id to the element to recieve on drop
+            const tempId = 'temp-' + Math.random().toString(36).substring(2, 10);
+            e.id = tempId;
+            event.dataTransfer.setData('text/plain', tempId);
+        }
+        else {
+            event.dataTransfer.setData('text/plain', event.target.id);
+        }
+    });
+
+    e.addEventListener('dragend', (event) => {
+        // Nothing... for now
+    });
+
+    e.addEventListener('drop', (event) => {
+        event.preventDefault();
+
+        // Get dropping element
+        const droppedId = event.dataTransfer.getData('text/plain');
+        const dropped = document.getElementById(droppedId);
+        if (droppedId.substring(0, 5) == 'temp-') {
+            // Unassign temp id
+            dropped.removeAttribute('id');
+        }
+
+        // Get parent list
+        const parentList = event.target.closest('ul');
+
+        // Then find element we're hovering over
+        const dropTarget = event.target.closest('li');
+
+        // Then append to parent list after element we're hovering over
+        parentList.insertBefore(dropped, dropTarget);
+
+    });
+
+    e.addEventListener('dragover', (event) => {
+        event.preventDefault(); // Necessary to allow a drop
+    });
+}
+
+async function drag() {
+
+}
+
+async function init() {
+    let playlistElems = await getPlaylistElements();
+    loadList(playlistElems, 'left-list', false);
+
+    // Set up observers
+    const queueList = document.getElementById('right-list');
+    const listObserver = new MutationObserver((mutationRecord, observer) => {
+        for (let mutation of mutationRecord) {
+            if (mutation.type === 'childList') {
+                // Refresh queue. This isn't very efficient and will likely be removed.
+                let queueTracks = queueList.getElementsByTagName('li');
+                playQueue.setTracks(queueTracks);
+                console.log(queueTracks);
+            }
+        }
+    });
+
+    // Assuming only adding/removing elements need to be observed
+    const config = {
+        childList: true,    
+        attribures: false,
+        subtree: false
+    };
+
+    listObserver.observe(queueList, config);
 }
 
 // Redirects user if they are not yet authenticated
@@ -259,8 +347,7 @@ async function forceAuth() {
                 window.location.href = '/';
             }
             else {
-                let playlistElems = await getPlaylistElements();
-                loadList(playlistElems, 'left-list', false);
+                init();
             }
         });
 };
