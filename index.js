@@ -16,6 +16,8 @@ app.use(session({
     saveUninitialized: false
 }))
 app.use(express.static('public'));
+app.use(express.json());
+
 app.use('/auth', authRouter);
 app.use('/api', apiRouter);
 

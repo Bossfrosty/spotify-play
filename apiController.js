@@ -59,6 +59,18 @@ router.get('/get-playlist', async (req, res) => {
     })
 })
 
+router.get('/create-playlist', async (req, res) => {
+    createPlaylist(req, async (err, body) => {
+        return res.json(body);
+    });
+})
+
+router.post('/set-queue', async (req, res) => {
+    setQueue(req, async (err, body) => {
+        return res.json(body);
+    });
+})
+
 // FUNCTIONS
 
 // Returns error and/or profile info as a JSON object in callback.
@@ -319,6 +331,94 @@ async function getPlaylistTracks(req, callback) {
 
     })
 
+}
+
+async function setQueue(req, callback) {
+    // Modifying Spotify's playback queue is limited, so instead a "Queue" playlist
+    // is created to simulate the application's queue. As a result, the queue will be visible as
+    // a playlist on the user's Spotify account.
+
+    req.query.playlist_name = 'queue';
+    req.query.playlist_public = 'false';
+
+    await createPlaylist(req, async (err, res) => {
+
+        const queueId = res.id;
+        req.query.playlist_id = queueId;
+
+        addToPlaylist(req, (err) => {
+            return callback(err);
+        })
+
+        return callback(null);
+    });
+    
+}
+
+async function createPlaylist(req, callback) {
+
+    const userId = req.session.user_id;
+    const token = req.session.access_token;
+
+    const name = req.query.playlist_name;
+    const public = req.query.playlist_public;
+
+    const url = 'https://api.spotify.com/v1/users/' + userId + '/playlists'
+
+    const options = {
+        headers: {
+            'content-type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({
+            'name': name,
+            'public': public
+        })
+    };
+
+    request.post(url, options, function (err, response, body) {
+
+        if (err) {
+            const errstr = 'Could not create playlist.'
+            console.error(errstr, err);
+            return callback(err);
+        }
+
+        console.log("Create New Playlist [" + response.statusCode + "] " + response.statusMessage);
+        return callback(null, JSON.parse(body));
+    });
+
+}
+
+async function addToPlaylist(req, callback) {
+
+    const token = req.session.access_token;
+    const playlistId = req.query.playlist_id;   // Target playlist
+    const uris = req.body.track_uris;           // JSON Array of track URIs to add
+
+    const url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks'
+
+    const options = {
+        headers: {
+            'content-type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({
+            'uris': uris
+        })
+    };
+
+    request.post(url, options, function (err, response, body) {
+
+        if (err) {
+            const errstr = 'Could not add to playlist.'
+            console.error(errstr, err);
+            return callback(err);
+        }
+
+        console.log("Add To Playlist [" + response.statusCode + "] " + response.statusMessage);
+        return callback(null, JSON.parse(body));
+    });
 }
 
 module.exports = router;

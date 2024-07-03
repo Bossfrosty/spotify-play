@@ -19,6 +19,27 @@ document.getElementById('queue-clear').addEventListener('click', function() {
         .then((trackList) => loadList(trackList, 'right-list', false, true));
 });
 
+document.getElementById('queue-set').addEventListener('click', function () {
+    playQueue.getUris()
+        .then(uriStr =>
+            fetch('/api/set-queue', {
+                method: 'POST',
+                body: JSON.stringify({
+                    track_uris: uriStr
+                }),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            }
+            ))
+});
+
+document.getElementById('create-playlist').addEventListener('click', function() {
+    let playlistName = prompt('Enter playlist name: ');
+    const url = '/api/create-playlist?playlist_name=' + playlistName;
+    fetch(url);
+})
+
 async function getPlaylistElements() {
 
     let elems = [];
@@ -323,7 +344,6 @@ async function init() {
                 // Refresh queue. This isn't very efficient and will likely be removed.
                 let queueTracks = queueList.getElementsByTagName('li');
                 playQueue.setTracks(queueTracks);
-                console.log(queueTracks);
             }
         }
     });

@@ -26,7 +26,16 @@ router.get('/status', function (req, res) {
 
 router.get('/login', function (req, res) {
 
-    const scopeList = ['user-read-private', 'user-read-email', 'user-read-playback-state', 'user-modify-playback-state', 'playlist-read-private', 'playlist-read-collaborative']
+    const scopeList = [
+        'user-read-private', 
+        'user-read-email', 
+        'user-read-playback-state', 
+        'user-modify-playback-state', 
+        'playlist-read-private', 
+        'playlist-read-collaborative',
+        'playlist-modify-public',
+        'playlist-modify-private'
+    ]
     const scope = scopeList.join(' ');
 
     res.redirect('https://accounts.spotify.com/authorize?' +

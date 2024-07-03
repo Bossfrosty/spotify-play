@@ -29,8 +29,6 @@ body {
     overflow-y: scroll;
 }
 
-
-
 .body-col ul {
     list-style-type: none;
     padding: 0;
@@ -74,15 +72,10 @@ body {
     align-items: center;
 }
 
-.elem-title {
+.elem-title, .header-title {
     margin-right: auto;
-    flex: 1;
 }
 
-.elem-options {
+.elem-options, .header-options {
     height: auto;
-}
-
-#right-title {
-    margin-right: auto;
 }

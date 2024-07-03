@@ -22,6 +22,20 @@ class PlayQueue {
         return this.tracks;
     }
 
+    async getUri(t) {
+        let uriStr =  'spotify:track:' + t.getAttribute('track_id');
+        return uriStr;
+    }
+
+    async getUris() {
+        let uris = []
+        for (let t of this.tracks) {
+            const thisUri = await this.getUri(t);
+            uris.push(thisUri);
+        }
+        return uris
+    }
+
     async clear() {
         this.tracks = [];
     }
