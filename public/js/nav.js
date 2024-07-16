@@ -136,6 +136,7 @@ async function loadList(elements, targetId, backList) {
         targetList.prepend(backElem);
     }
 
+    return targetList;
 }
 
 async function playTrack(contextType, contextId, trackId) {
@@ -175,7 +176,10 @@ async function createPlaylistElement(id, titleStr) {
     titleDiv.addEventListener('click', async (event) => {
         let playlistId = event.target.closest('li').getAttribute('playlist_id');
         let playlistTracks = await getPlaylistTrackElements(playlistId);
-        loadList(playlistTracks, 'left-list', true);
+        loadList(playlistTracks, 'left-list', true)
+            .then((loadedList) => {
+                loadedList.setAttribute('playlist_id', playlistId);
+            });
     });
 
     setListStyle(elem, 'playlist');
