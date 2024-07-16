@@ -103,7 +103,6 @@ async function getProfile(req, callback) {
         const errstr = 'Unknown error getting profile info.'
         console.error(errstr, err);
         return callback(new Error('Unknown error occurred getting profile info.'));
-
     })
 
 }
@@ -158,6 +157,7 @@ async function startPlayback(req) {
     let offsetUri = ''
 
     // Will pick from the first possible ID to use as context
+    // TODO: This could be its own function
     if (req.query.album_id) {
         contextUri = 'spotify:album:' + req.query.album_id;
     }
@@ -195,9 +195,6 @@ async function startPlayback(req) {
             if (response.statusCode == 404) {
                 // TODO: Get default device ID at start of every session
                 console.log('Got 404 trying to start playback. This may occur if you do not have an active device.')
-            }
-            else {
-                console.log("Playback started");
             }
         }
     });
@@ -247,11 +244,13 @@ async function skipPrev(req) {
             const errstr = 'Could not skip to previous.'
             console.error(errstr, err);
         }
-        else {
-            console.log('Skipped to previous');
-        }
 
-        console.log("Skip to prev [" + response.statusCode + "] " + response.statusMessage);
+        try {
+            console.log("Skip to prev [" + response.statusCode + "] " + response.statusMessage);
+        }
+        catch (err) {
+            console.error('Error in skipPrev response', err);
+        }
     });
 }
 
@@ -273,12 +272,14 @@ async function skipNext(req) {
             const errstr = 'Could not skip to next.'
             console.error(errstr, err);
         }
-        else {
-            console.log('Skipped to Next');
+
+        try {
+            console.log("Skip to next [" + response.statusCode + "] " + response.statusMessage);
+        }
+        catch (err) {
+            console.error('Error in skipNext response', err);
         }
     });  
-
-    console.log("Skip to next [" + response.statusCode + "] " + response.statusMessage);
 }
 
 async function getPlaylists(req, callback) {
@@ -287,12 +288,34 @@ async function getPlaylists(req, callback) {
     // Promises may have been better here, but I find this method much more readable.
     getProfile(req, async (err, profileInfo) => {
 
-        req.session.user_id = profileInfo.id;
+        if (err) {
+            const errstr = 'Could not get playlists.'
+            console.error(errstr, err);
+            return callback(err);
+        }
 
-        const userId = req.session.user_id;
+        if (!profileInfo || !profileInfo.id) {
+            const err = new Error('profileInfo property missing or incomplete');
+            console.error(err);
+            return callback(err);
+        }
+
+        let token = '';
+        let userId = '';
+
+        try {
+            validateToken(req);
+            req.session.user_id = profileInfo.id;
+            const userId = req.session.user_id;
+            token = req.session.access_token;
+        }
+        catch (err) {
+            console.error('Could not getPlaylists', err);
+            return callback(err);
+        }
+
         const url = 'https://api.spotify.com/v1/users/' + userId + '/playlists';
-        const token = req.session.access_token;
-    
+
         const options = {
             headers: {
                 'content-type': 'application/json',
@@ -302,20 +325,34 @@ async function getPlaylists(req, callback) {
     
         request.get(url, options, function (err, response, body) {
     
-            console.log("Request User's Playlists [" + response.statusCode + "] " + response.statusMessage);
-            return callback(null, JSON.parse(body));
-    
+            try {
+                console.log("Request User's Playlists [" + response.statusCode + "] " + response.statusMessage);
+                return callback(null, JSON.parse(body));
+            }
+            catch (err) {
+                console.error('Error in getPlaylists response', err)
+                return callback(err);
+            }
         })
-    
     })
-
 }
 
 async function getPlaylistTracks(req, callback) {
 
-    const playlistId = req.query.playlist_id;
+    let playlistId = ''
+    let token = ''
+
+    try {
+        validateQuery(req, 'playlist_id')
+        playlistId = req.query.playlist_id;
+        token = req.session.access_token;
+    }
+    catch (err) {
+        console.error('Could not get playlist tracks ', err)
+        return callback(err);
+    }
+
     const url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks';
-    const token = req.session.access_token;
 
     const options = {
         headers: {
@@ -326,11 +363,15 @@ async function getPlaylistTracks(req, callback) {
 
     request.get(url, options, function (err, response, body) {
 
-        console.log("Request Playlist Tracks [" + response.statusCode + "] " + response.statusMessage);
-        return callback(null, JSON.parse(body));
-
+        try {
+            console.log("Request Playlist Tracks [" + response.statusCode + "] " + response.statusMessage);
+            return callback(null, JSON.parse(body));    
+        }
+        catch (err) {
+            console.error('Error in getPlaylistTracks response', err);
+            return callback(err);
+        }
     })
-
 }
 
 async function setQueue(req, callback) {
@@ -341,27 +382,52 @@ async function setQueue(req, callback) {
     req.query.playlist_name = 'queue';
     req.query.playlist_public = 'false';
 
-    await createPlaylist(req, async (err, res) => {
+    try {
+        await createPlaylist(req, async (err, res) => {
 
-        const queueId = res.id;
-        req.query.playlist_id = queueId;
+            if (!res.id) {
+                throw new Error('Queue ID missing');
+            }
+            const queueId = res.id;
+            req.query.playlist_id = queueId;
 
-        addToPlaylist(req, (err) => {
-            return callback(err);
-        })
+            addToPlaylist(req, (err) => {
+                return callback(err);
+            })
 
-        return callback(null);
-    });
-    
+            return callback(null);
+        });
+    }
+    catch (err) {
+        console.error('Error setting queue', err);
+        return callback(err);
+    }
 }
 
 async function createPlaylist(req, callback) {
 
-    const userId = req.session.user_id;
-    const token = req.session.access_token;
+    let userId = '';
+    let token = '';
+    let name = '';
+    let public = '';
 
-    const name = req.query.playlist_name;
-    const public = req.query.playlist_public;
+    try {
+        if (!req.session.user_id) {
+            throw new Error('Missing user ID in createPlaylist');
+        }
+        userId = req.session.user_id;
+
+        validateToken(req);
+        token = req.session.access_token;
+
+        validateQuery(req, 'playlist_name', 'playlist_public');
+        name = req.query.playlist_name;
+        public = req.query.playlist_public;
+    }
+    catch (err) {
+        console.error('Could not create playlist ', err)
+        return callback(err);
+    }
 
     const url = 'https://api.spotify.com/v1/users/' + userId + '/playlists'
 
@@ -379,22 +445,44 @@ async function createPlaylist(req, callback) {
     request.post(url, options, function (err, response, body) {
 
         if (err) {
-            const errstr = 'Could not create playlist.'
+            const errstr = 'Could not create playlist '
             console.error(errstr, err);
             return callback(err);
         }
 
-        console.log("Create New Playlist [" + response.statusCode + "] " + response.statusMessage);
-        return callback(null, JSON.parse(body));
+        try {
+            console.log("Create New Playlist [" + response.statusCode + "] " + response.statusMessage);
+            return callback(null, JSON.parse(body));
+        }
+        catch (err) {
+            console.error('Error in createPlaylist response', err);
+        }
     });
 
 }
 
 async function addToPlaylist(req, callback) {
 
-    const token = req.session.access_token;
-    const playlistId = req.query.playlist_id;   // Target playlist
-    const uris = req.body.track_uris;           // JSON Array of track URIs to add
+    let token = '';
+    let playlistId = '';
+    let uris = '';
+
+    try {
+        validateToken(req);
+        token = req.session.access_token;
+
+        validateQuery(req, 'playlist_id');
+        playlistId = req.query.playlist_id;   // Target playlist
+
+        if (!req.body || !req.body.track_uris) {
+            throw new Error('Missing or incomplete request body')
+        }
+        uris = req.body.track_uris;           // JSON Array of track URIs to add
+    }
+    catch (err) {
+        console.error('Could not add to playlist', err);
+        return callback(err);
+    }
 
     const url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks'
 
@@ -416,9 +504,33 @@ async function addToPlaylist(req, callback) {
             return callback(err);
         }
 
-        console.log("Add To Playlist [" + response.statusCode + "] " + response.statusMessage);
-        return callback(null, JSON.parse(body));
+        try {
+            console.log("Add To Playlist [" + response.statusCode + "] " + response.statusMessage);
+            return callback(null, JSON.parse(body));
+        }
+        catch (err) {
+            console.error('Error in addToPlaylist response ', err);
+        }
     });
+}
+
+// ERROR HANDLING
+
+function validateToken(req) {
+    if (!req.session || !req.session.access_token) {
+        throw new Error('Access token is missing');
+    }
+}
+
+function validateQuery(req, ...queries) {
+    if (!req.query) {
+        throw new Error ('Missing query');
+    }
+    for (const q of queries) {
+        if (!req.query[q]) {
+            throw new Error ('Missing query parameter ' + q);
+        }
+    }
 }
 
 module.exports = router;
